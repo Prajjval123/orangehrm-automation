@@ -1,27 +1,40 @@
 import pytest
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
-
-# same as saucedemo project - this opens and closes Chrome for every test automatically
-# pytest reads this file on its own, I don't need to import it anywhere
+import time
 
 @pytest.fixture
 def driver():
+    chrome_options = Options()
+    chrome_options.add_argument("--disable-features=PasswordLeakDetection")
+    chrome_options.add_argument("--disable-save-password-bubble")
+    chrome_options.add_argument("--disable-notifications")
+    chrome_options.add_argument("--no-first-run")
+    chrome_options.add_argument("--no-default-browser-check")
+    chrome_options.add_experimental_option("prefs", {
+        "credentials_enable_service": False,
+        "profile.password_manager_enabled": False,
+        "profile.password_manager_leak_detection": False,
+        "safebrowsing.enabled": False
+    })
 
-    # open Chrome - webdriver manager handles the driver version automatically
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+    # small wait before opening so previous Chrome window fully closes
+    time.sleep(1)
 
-    # maximize window so nothing is hidden or off screen
+    driver = webdriver.Chrome(
+        service=Service(ChromeDriverManager().install()),
+        options=chrome_options
+    )
     driver.maximize_window()
-
-    # wait up to 10 seconds for elements to load before failing
-    # OrangeHRM is a heavier app than SauceDemo so it needs a bit more time
     driver.implicitly_wait(10)
 
-    # yield = run the test now
-    # before yield = setup, after yield = cleanup
     yield driver
 
-    # close browser after test finishes
-    driver.quit()
+    # close browser and wait for it to fully shut down before next test opens
+    try:
+        driver.quit()
+    except Exception:
+        pass
+    time.sleep(1)
